@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {db} from '../../server';import {digits} from '../../lib';
+export async function POST(req){try{let {phone}=await req.json();phone=digits(phone);let a=await db(`clients?phone=eq.${phone}&select=id,name,phone,referral_code`);if(!a?.length)return NextResponse.json({error:'No encontramos una tarjeta con ese teléfono.'},{status:404});return NextResponse.json({client:a[0]})}catch{return NextResponse.json({error:'No pudimos buscar tu tarjeta.'},{status:500})}}

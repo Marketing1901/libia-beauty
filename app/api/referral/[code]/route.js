@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {db} from '../../../server';
+export async function GET(req,{params}){try{let {code}=await params;let a=await db(`clients?referral_code=eq.${encodeURIComponent(code)}&select=id,name,referral_code`);if(!a?.length)return NextResponse.json({error:'Invitación no encontrada'},{status:404});return NextResponse.json({referrer:a[0]})}catch{return NextResponse.json({error:'Invitación no disponible'},{status:500})}}

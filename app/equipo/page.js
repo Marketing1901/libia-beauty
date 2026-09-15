@@ -7,24 +7,27 @@ const post=(url,body)=>fetch(url,{method:'POST',headers:{'Content-Type':'applica
 
 export default function Equipo(){
   const [pin,setPin]=useState(''),[ok,setOk]=useState(false),[tab,setTab]=useState('counter');
-  const [q,setQ]=useState(''),[results,setResults]=useState([]),[client,setClient]=useState(null),[data,setData]=useState(null);
+  const [q,setQ]=useState(''),[results,setResults]=useState([]),[summary,setSummary]=useState(null),[client,setClient]=useState(null),[data,setData]=useState(null);
   const [service,setService]=useState('Color'),[msg,setMsg]=useState(''),[scan,setScan]=useState(false);
   const [configPin,setConfigPin]=useState(''),[configOk,setConfigOk]=useState(false),[cfg,setCfg]=useState(null);
   useEffect(()=>{let id=new URLSearchParams(location.search).get('client');if(id)setClient({id})},[]);
   useEffect(()=>{if(ok&&client?.id)load(client.id)},[ok,client?.id]);
+  useEffect(()=>{if(ok&&!client)search('')},[ok]);
   async function enter(){let r=await post('/api/auth',{pin,type:'staff'}),d=await r.json();if(!r.ok)return setMsg(d.error);setMsg('');setOk(true)}
   async function load(id){let r=await fetch(`/api/client/${id}`),d=await r.json();setData(d);if(d.client)setClient(d.client);else setMsg(d.error)}
-  async function search(){let r=await post('/api/staff',{pin,query:q}),d=await r.json();if(!r.ok)return setMsg(d.error);setMsg('');setResults(d.clients||[])}
+  async function search(value=q){let r=await post('/api/staff',{pin,query:value}),d=await r.json();if(!r.ok)return setMsg(d.error);setMsg('');setResults(d.clients||[]);setSummary(d.summary||null)}
   async function action(type,rewardType){setMsg('');let r=await post(`/api/staff/client/${client.id}/${type}`,{pin,service,rewardType}),d=await r.json();setMsg(r.ok?(type==='visit'?'Visita registrada correctamente ✨':type==='reward'?'Recompensa entregada correctamente ✨':'Beneficio canjeado correctamente ✨'):d.error);if(r.ok)load(client.id)}
   if(!ok)return <main className="staffHome"><header><img src="/libia-logo.jpg"/><span>USO INTERNO</span></header><section className="staffGate"><ShieldCheck/><h1>Equipo Libia</h1><p>Acceso exclusivo para el counter.</p><label>PIN de operación<input type="password" inputMode="numeric" value={pin} onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==='Enter'&&enter()}/></label><button onClick={enter}>Entrar</button>{msg&&<p className="error">{msg}</p>}</section></main>;
   if(tab==='settings')return <SettingsPanel pin={configPin} setPin={setConfigPin} access={configOk} setAccess={setConfigOk} cfg={cfg} setCfg={setCfg} back={()=>setTab('counter')}/>;
   return <main className="teamApp">
     <header className="teamHead"><img src="/libia-logo.jpg"/><div><small>LIBIA BEAUTY SALON</small><b>Counter</b></div></header>
-    <nav className="teamTabs"><button className="active" onClick={()=>{setClient(null);setData(null);setMsg('')}}><Search/>Clientes</button><button onClick={()=>setScan(true)}><ScanLine/>Escanear QR</button><button onClick={()=>setTab('settings')}><Settings/>Configuración</button></nav>
-    {!client?<section className="counterStart"><small>OPERACIÓN</small><h1>¿A quién atendemos hoy?</h1><p>Escanea su QR personal o búscala por teléfono o nombre.</p><div className="searchBox"><Search/><input placeholder="Teléfono o nombre" value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()}/><button onClick={search}>Buscar</button></div><button className="scanHero" onClick={()=>setScan(true)}><Camera/>Escanear QR de cliente</button>{msg&&<p className="error">{msg}</p>}<div className="results">{results.map(c=><button key={c.id} onClick={()=>setClient(c)}><User/><span><b>{c.name}</b><small>{c.phone}</small></span>›</button>)}</div></section>:<ClientPanel data={data} service={service} setService={setService} action={action} msg={msg} close={()=>{setClient(null);setData(null);setMsg('')}}/>}
+    <nav className="teamTabs"><button className="active" onClick={()=>{setClient(null);setData(null);setMsg('');search('')}}><Search/>Clientes</button><button onClick={()=>setScan(true)}><ScanLine/>Escanear QR</button><button onClick={()=>setTab('settings')}><Settings/>Configuración</button></nav>
+    {!client?<Dashboard summary={summary} q={q} setQ={setQ} search={search} results={results} open={setClient} scan={()=>setScan(true)} msg={msg}/>:<ClientPanel data={data} service={service} setService={setService} action={action} msg={msg} close={()=>{setClient(null);setData(null);setMsg('');search('')}}/>}
     {scan&&<Scanner close={()=>setScan(false)} found={id=>{setScan(false);setClient({id})}}/>}
   </main>
 }
+
+function Dashboard({summary,q,setQ,search,results,open,scan,msg}){return <section className="counterStart dashboard"><div className="dashboardIntro"><div><small>DASHBOARD</small><h1>Clientes de Libia</h1><p>Todos los clientes y su progreso en un solo lugar.</p></div><button className="scanCompact" onClick={scan}><Camera/>Escanear QR</button></div>{summary&&<div className="summaryGrid"><div><small>CLIENTES</small><b>{summary.clients}</b></div><div><small>VISITAS</small><b>{summary.visits}</b></div><div><small>PUNTOS REFERIDOS</small><b>{Number(summary.referralPoints).toFixed(1)}</b></div><div><small>REGALOS LISTOS</small><b>{summary.rewards}</b></div></div>}<div className="searchBox"><Search/><input placeholder="Buscar nombre o teléfono" value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()}/><button onClick={()=>search()}>Buscar</button></div>{msg&&<p className="error">{msg}</p>}<div className="clientList"><div className="listTitle"><b>{q?'Resultados':'Todos los clientes'}</b><span>{results.length}</span></div>{results.map(c=><button className="clientRow" key={c.id} onClick={()=>open(c)}><span className="avatar">{c.name?.[0]}</span><span className="clientMain"><b>{c.name}</b><small>{c.phone}</small></span><span className="clientMetrics"><em>{c.visitCount} visitas</em><em>{Number(c.refPoints).toFixed(1)} pts.</em>{c.referralStatus&&<em className={c.referralStatus.discount_redeemed?'done':c.referralStatus.first_visit_completed?'half':'pending'}>{c.referralStatus.discount_redeemed?'+1 referido':c.referralStatus.first_visit_completed?'+0.5 referido':'Referido pendiente'}</em>}</span><span className="chevron">›</span></button>)}</div></section>}
 
 function ClientPanel({data,service,setService,action,msg,close}){
   if(!data?.client)return <section className="counterStart">Cargando cliente…</section>;
@@ -34,7 +37,7 @@ function ClientPanel({data,service,setService,action,msg,close}){
     {data.visitAvailable>0&&<><hr/><h2>Tratamiento de color disponible</h2><p>Recompensa obtenida por completar cinco visitas.</p><button className="goldAction" onClick={()=>action('reward','visit_color')}><Gift/>Marcar recompensa como entregada</button></>}
     {data.referralAvailable>0&&<><hr/><h2>Regalo especial disponible</h2><p>Recompensa obtenida por completar cinco puntos de referidos.</p><button className="goldAction" onClick={()=>action('reward','referral_color')}><Gift/>Marcar regalo como entregado</button></>}
     {b&&!b.discount_redeemed&&<><hr/><h2>Beneficio de referido · 5%</h2><p>Permanece pendiente hasta usarlo en Color, Highlights, Botox o Keratina.</p><div className="serviceButtons">{eligible.map(x=><button className={service===x?'selected':''} onClick={()=>setService(x)} key={x}>{x}</button>)}</div><button className="goldAction" onClick={()=>action('redeem')}><Tag/>Canjear 5% · {service}</button></>}
-    {b?.discount_redeemed&&<div className="notice">5% utilizado en {b.qualifying_service}.</div>}{msg&&<div className="notice">{msg}</div>}</section>
+    {b&&<div className={`refProgress ${b.discount_redeemed?'complete':b.first_visit_completed?'half':'pending'}`}><span>PROGRESO DEL REFERIDO</span><b>{b.discount_redeemed?'+1.0 punto':b.first_visit_completed?'+0.5 punto':'Pendiente'}</b><small>{b.discount_redeemed?`Primera visita + canje en ${b.qualifying_service}`:b.first_visit_completed?'Primera visita completada · falta usar el 5%':'Aún no registra su primera visita'}</small></div>}{msg&&<div className="notice">{msg}</div>}</section>
   </section>
 }
 

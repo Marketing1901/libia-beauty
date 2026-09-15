@@ -1,0 +1,2 @@
+import {NextResponse} from 'next/server';import {okPin} from '../../server';
+export async function POST(req){try{let {pin,type='staff'}=await req.json();if(!okPin(pin,type==='config'?'config':'staff'))return NextResponse.json({error:type==='config'?'Código de configuración incorrecto':'PIN incorrecto'},{status:401});return NextResponse.json({ok:true})}catch{return NextResponse.json({error:'No se pudo validar el acceso.'},{status:400})}}
